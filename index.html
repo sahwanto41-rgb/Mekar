@@ -695,17 +695,17 @@ langkahPembelajaran:{pendahuluan:lp(`pendahuluan`),kegiatanInti:lp(`kegiatanInti
 asesmen:{diagnostik:joinT(d=>d.asesmen.diagnostik),
 formatif:{teknik:joinT(d=>d.asesmen.formatif.teknik),rubrik:parts.flatMap((x,i)=>(x.d.asesmen.formatif.rubrik||[]).map(o=>({...o,kriteria:`P`+(i+1)+`: `+o.kriteria})))},
 sumatif:{teknik:joinT(d=>d.asesmen.sumatif.teknik)}},
-lkpd:{...b.lkpd,judul:b.lkpd.judul+` (Pertemuan 1–`+n+`)`,aktivitas:parts.flatMap((x,i)=>(x.d.lkpd.aktivitas||[]).map(s=>tag(i,s)))},
+lkpd:{...b.lkpd,judul:`LKPD `+e.topik+` (Pertemuan 1–`+n+`)`,petunjuk:parts.flatMap((x,i)=>(x.d.lkpd.petunjuk||[]).map(s=>tag(i,s))),aktivitas:parts.flatMap((x,i)=>(x.d.lkpd.aktivitas||[]).map(s=>tag(i,s)))},
 remedialDanPengayaan:{remedial:joinT(d=>d.remedialDanPengayaan.remedial),pengayaan:joinT(d=>d.remedialDanPengayaan.pengayaan)},
 glosarium:dedupBy(flat(d=>d.glosarium),o=>o.istilah),
 daftarPustaka:uniq(flat(d=>d.daftarPustaka))}}
-async function cM(e){const P=e&&e.pertemuan;if(!P||P.length<2)return cMs(e);const N=P.length;
+async function cM(e){const P=e&&e.pertemuan;if(!P||P.length<2)return cMs(e);const N=P.length,V=mkVar(N,e);
 const res=await Promise.all(P.map((q,i)=>{const t=q.topik||(e.topik+` (Pertemuan `+(i+1)+`)`),tp=q.tp||e.tujuanPembelajaran;
-return cMs({...e,pertemuan:null,topik:t+` (Pertemuan `+(i+1)+` dari `+N+` pada topik besar: `+e.topik+`)`,tujuanPembelajaran:tp}).then(r=>({r,t,tp,tgl:q.tgl||``,jam:q.jam||``}))}));
+return cMs({...e,pertemuan:null,topik:t+` (Pertemuan `+(i+1)+` dari `+N+` pada topik besar: `+e.topik+`)`,tujuanPembelajaran:tp,variasi:V[i]}).then(r=>({r,t,tp,tgl:q.tgl||``,jam:q.jam||``}))}));
 const bad=res.find(x=>!x.r||!x.r.success||!x.r.data);if(bad)return bad.r||{success:!1};
 const note=res.map(x=>x.r.note).filter(Boolean)[0];
 return{success:!0,data:mkMerge(e,res.map(x=>({d:x.r.data,t:x.t,tp:x.tp,tgl:x.tgl,jam:x.jam}))),source:res[0].r.source,...(note?{note}:{})}}
-async function cMs(e){if(!tM())return{success:!0,data:sM(e),source:`mekar-pedagogical-engine`};try{let t=`Anda adalah Spesialis Kurikulum Merdeka Nasional dan Guru Penggerak Utama untuk jenjang Sekolah Dasar di Indonesia.
+async function cMs(e){if(!e.variasi)e={...e,variasi:mkVar(1,e)[0]};if(!tM())return{success:!0,data:sM(e),source:`mekar-pedagogical-engine`};try{let t=`Anda adalah Spesialis Kurikulum Merdeka Nasional dan Guru Penggerak Utama untuk jenjang Sekolah Dasar di Indonesia.
 Rancang Modul Ajar Kurikulum Merdeka yang komprehensif, mendalam, efektif, kreatif, adaptif, dan reflektif sesuai standar Kemendikbudristek RI.
 
 DATA IDENTITAS MODUL:
@@ -731,6 +731,14 @@ PANDUAN PEDAGOGIS KHUSUS:
 3. Rancang kegiatan inti yang interaktif dengan durasi terukur dan sintaks model yang jelas.
 4. Buat instrumen asesmen formatif dengan rubrik berkriteria 4 skala (Perlu Bimbingan, Cukup, Baik, Sangat Baik).
 5. Buat Lembar Kerja Peserta Didik (LKPD) yang menarik dan operasional.
+6. VARIASI WAJIB agar perangkat ajar tidak monoton. Ikuti penugasan khusus untuk modul/pertemuan ini:
+   - Kegiatan pembuka: ${e.variasi.pembuka}
+   - Asesmen diagnostik: ${e.variasi.diagnostik}
+   - Asesmen formatif (isi 'teknik' dengan teknik ini, dan buat rubrik/kriteria yang sesuai dengan teknik tersebut, bukan rubrik generik): ${e.variasi.formatif}
+   - Asesmen sumatif: ${e.variasi.sumatif}
+   - Format LKPD: ${e.variasi.lkpd}
+7. LKPD wajib berisi minimal 6 butir aktivitas/soal yang konkret dan siap dipakai siswa (bukan perintah umum). Tuliskan isi lembar kerjanya langsung: misalnya kolom tabel yang harus diisi (pisahkan kolom dengan tanda |), data atau cerita kontekstual desa Lanas beserta pertanyaan analisis bertingkat (C2 sampai C5), serta satu butir refleksi singkat siswa. Campurkan tipe butir (isian, pilihan, menjodohkan, uraian, tindakan/praktik) sesuai format LKPD di atas. Sesuaikan bahasa dan tingkat kesulitan dengan siswa kelas ${e.kelas||4}.
+8. Rubrik formatif minimal 4 kriteria yang spesifik pada tujuan pembelajaran (hindari kriteria generik seperti antusiasme atau kerja sama kecuali relevan), dengan deskriptor skor 4/3/2/1 yang dapat diamati.${e.variasi.N>1?` Modul ini punya ${e.variasi.N} pertemuan yang dirancang terpisah dan ini pertemuan ke-${e.variasi.ke}: teknik asesmen dan format LKPD pertemuan ini HARUS berbeda dari pertemuan lain, sehingga rangkaian pertemuan terasa bervariasi.`:``}
 
 HASILKAN KELUARAN HANYA BERUPA JSON VALID (tanpa markdown backtick json atau teks tambahan pembuka/penutup) dengan struktur skema berikut:
 {
@@ -837,6 +845,17 @@ async function mkGem(key,model,prompt,json){
  if(!u||!P)throw Error(`Belum login atau alamat proxy AI belum diatur`);
  var tk=await u.getIdToken(),x=await fetch(P,{method:`POST`,body:JSON.stringify({token:tk,model:model,prompt:prompt,json:json})}),w=await x.json();
  return new Response(JSON.stringify(w.data||{error:{message:w.error||`Proxy gagal`}}),{status:w.status||500})}
+function mkVar(N,e){
+ var A=['Observasi aktivitas siswa dengan lembar cek (checklist) indikator perilaku dan keterampilan','Unjuk kerja (praktik langsung) dinilai dengan rubrik keterampilan','Penilaian produk: hasil karya siswa (poster, model, peta, laporan singkat) dengan rubrik produk','Kuis singkat/tes tertulis pendek (5 butir campuran pilihan ganda, isian, dan uraian HOTS)','Penilaian diri dan sejawat memakai lembar refleksi skala emoji/bintang','Portofolio dan jurnal belajar siswa (catatan temuan, gambar, refleksi)','Wawancara/tanya jawab lisan terstruktur dengan pedoman skor','Penilaian proyek mini kelompok dengan rubrik proses dan hasil'],
+ D=['Pertanyaan pemantik lisan kontekstual dengan peta kesiapan kelas','Kuis kilat 3 butir tentang prasyarat materi','Peta konsep/cerita gambar awal: siswa menuliskan apa yang sudah diketahui','Mengamati benda/gambar/fenomena nyata lalu menulis tebakan (prediksi)','Kartu Tahu-Ingin tahu-Belajar (KWL) singkat'],
+ S=['Tugas unjuk kerja akhir topik dengan rubrik','Tes tertulis akhir topik (campuran pilihan ganda, isian, uraian)','Penilaian produk akhir/proyek','Presentasi hasil dan tanya jawab','Portofolio akhir topik'],
+ L=['Tabel pengamatan/percobaan sederhana (siswa mengisi data lalu menarik kesimpulan)','Studi kasus kontekstual desa Lanas (cerita/data singkat + pertanyaan analisis bertingkat)','Peta pikiran atau diagram alur yang harus dilengkapi siswa','Lembar wawancara/survei ke orang tua, petani, atau warga sekitar','Permainan edukatif: teka-teki silang, kartu pasangan, atau puzzle kata','Proyek membuat produk (poster, model, rencana kerja) dengan langkah dan daftar bahan','Investigasi lapangan di lingkungan sekolah dengan lembar catatan dan sketsa','Diskusi kelompok berperan (jigsaw/think-pair-share) dengan lembar peran dan kesimpulan'],
+ P=['Cerita pendek/dongeng lokal Bondowoso yang dikaitkan dengan topik','Lagu atau tepuk semangat bertema topik','Demonstrasi singkat benda nyata oleh guru','Gambar/foto lingkungan desa untuk diamati bersama','Teka-teki atau tebak benda dari kantong misteri','Pernyataan "setuju/tidak setuju" dengan berpindah tempat'],
+ k=String(e&&e.topik||'')+String(e&&e.kelas||''),h=0,i,r=[],o;
+ for(i=0;i<k.length;i++)h=(h*31+k.charCodeAt(i))>>>0;
+ o=(h+Math.floor(Math.random()*997))%1000;
+ for(i=0;i<N;i++)r.push({ke:i+1,N:N,formatif:A[(o+i)%A.length],diagnostik:D[(o+i*2)%D.length],sumatif:S[(o+i)%S.length],lkpd:L[(o+i*3)%L.length],pembuka:P[(o+i*5)%P.length]});
+ return r}
 function mkAdm(){try{var u=JSON.parse(localStorage.getItem('mekar_current_user_lanas1')||'null');return!!u&&(u.role==='KEPALA_SEKOLAH'||u.role==='ADMINISTRATOR')}catch(e){return false}}
 function mkJabatan(m){var k=function(x){return String(x||'').toLowerCase().replace(/[^a-z0-9]/g,'')},p=(m&&m.identitas)||{},nm=k(p.penyusun),T=window.MEKAR_PENUGASAN||{},i,v;
  if(nm.length>=4)for(i in T){v=T[i];if(v&&v.jabatan&&v.nama&&(nm.indexOf(v.nama)===0||v.nama.indexOf(nm)===0))return v.jabatan}
