@@ -984,6 +984,9 @@ function mkBuildJurnalDoc(list,st,cu,title){
  if(!groups.length)body='<section class="grp">'+kop+'<h1 class="ttl">Jurnal Mengajar dan Refleksi Guru Kelas</h1><p class="sub">Belum ada data jurnal untuk dicetak.</p></section>';
  return'<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><title>'+mkEsc(title||'Jurnal_dan_Refleksi_Guru')+'</title><style>'+css+'</style></head><body>'+body+'</body></html>'}
 function mkOpenPrint(html){
+ /* Paksa orientasi landscape juga pada dokumen induk (jalur iframe/cadangan sering mengabaikan @page milik iframe). */
+ var land=/@page\s*\{\s*size:\s*A4\s+landscape/i.test(html),pg=null;
+ if(land){try{pg=document.createElement('style');pg.id='mk-pg-land';pg.textContent='@page{size:A4 landscape;margin:12mm 15mm 12mm 15mm}';document.head.appendChild(pg);var rm=function(){try{if(pg&&pg.parentNode)pg.parentNode.removeChild(pg)}catch(e){}};window.addEventListener('afterprint',rm,{once:true});setTimeout(rm,60000)}catch(e){}}
  try{var w=window.open('','_blank','width=900,height=800');if(w){w.document.open();w.document.write(html);w.document.close();w.focus();setTimeout(function(){try{w.print()}catch(e){console.warn('Print gagal',e)}},600);return}}catch(e){}
  try{var f=document.createElement('iframe');f.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0';document.body.appendChild(f);var d=f.contentWindow&&f.contentWindow.document;
   if(d){d.open();d.write(html);d.close();setTimeout(function(){try{f.contentWindow.focus();f.contentWindow.print();setTimeout(function(){if(document.body.contains(f))document.body.removeChild(f)},1500)}catch(e){window.print()}},500);return}}catch(e){window.print()}}
@@ -1011,7 +1014,7 @@ function MkKopUploader(p){
   err?(0,G.jsx)('div',{style:{color:'#b91c1c',fontSize:'11px',marginTop:'6px'},children:err}):null,
   input]})}
 
-function vM(e,t=`Modul_Ajar_MEKAR`){let n=document.getElementById(e);if(!n){try{window.print()}catch(e){console.warn(`Direct print failed`,e)}return}let c=mkPrintClone(n);let r=`
+function vM(e,t=`Modul_Ajar_MEKAR`){let n=document.getElementById(e);if(!n){try{window.print()}catch(e){console.warn(`Direct print failed`,e)}return}let c=mkPrintClone(n);try{let o=document.getElementById(`mk-pg-land`);o&&o.remove();let g=document.createElement(`style`);g.id=`mk-pg-port`;g.textContent=`@page{size:A4 portrait;margin:18mm 15mm 18mm 20mm}`;document.head.appendChild(g);let x=()=>{try{g.remove()}catch(e){}};window.addEventListener(`afterprint`,x,{once:!0});setTimeout(x,6e4)}catch(e){}let r=`
     <!DOCTYPE html>
     <html lang="id">
     <head>
