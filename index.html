@@ -1509,7 +1509,7 @@ window.mkLampHTML=function(e){var d=window.mkLamp(e),h='',pb='page-break-before:
  if(d.kriteria.length){var n=d.kriteria.length;
   h+='<div style="font-size:9pt;margin:3pt 0">Skor tiap kriteria: 4 = Sangat Baik, 3 = Baik, 2 = Cukup, 1 = Perlu Bimbingan.</div><ul style="margin:2pt 0 6pt 14pt;padding:0;font-size:9pt;list-style:none">'+d.kriteria.map(function(k,i){return'<li><b>K'+(i+1)+'</b> = '+X(k)+'</li>'}).join('')+'</ul>';
   h+='<table style="width:100%;border-collapse:collapse"><thead><tr><th style="'+th+';width:4%">No</th><th style="'+th+'">Nama Murid</th>'+d.kriteria.map(function(k,i){return'<th style="'+th+';width:6%;text-align:center">K'+(i+1)+'</th>'}).join('')+'<th style="'+th+';width:8%">Jumlah</th><th style="'+th+';width:8%">Nilai</th><th style="'+th+';width:14%">Kategori</th></tr></thead><tbody>';
-  var NR=Math.max(10,d.murid.length);for(var r=1;r<=NR;r++)h+='<tr style="break-inside:avoid"><td style="'+td+';height:18pt;text-align:center">'+r+'</td><td style="'+td+'">'+(d.murid[r-1]?X(d.murid[r-1]):'&nbsp;')+'</td>'+d.kriteria.map(function(){return'<td style="'+td+'">&nbsp;</td>'}).join('')+'<td style="'+td+'">&nbsp;</td><td style="'+td+'">&nbsp;</td><td style="'+td+'">&nbsp;</td></tr>';
+  var NR=d.murid.length||10;for(var r=1;r<=NR;r++)h+='<tr style="break-inside:avoid"><td style="'+td+';height:18pt;text-align:center">'+r+'</td><td style="'+td+'">'+(d.murid[r-1]?X(d.murid[r-1]):'&nbsp;')+'</td>'+d.kriteria.map(function(){return'<td style="'+td+'">&nbsp;</td>'}).join('')+'<td style="'+td+'">&nbsp;</td><td style="'+td+'">&nbsp;</td><td style="'+td+'">&nbsp;</td></tr>';
   h+='</tbody></table><div style="font-size:9pt;margin-top:4pt"><b>Nilai</b> = (Jumlah skor : '+(4*n)+') x 100</div>'}
  else h+='<div style="font-size:9.5pt;margin:2pt 0">Rubrik formatif belum tersedia pada modul ini.</div>';
  if(d.sum)h+='<div style="font-weight:700;font-size:10pt;margin-top:10pt">C. Asesmen Sumatif</div><div style="font-size:9.5pt;margin:2pt 0 8pt">'+X(d.sum)+'</div>';
@@ -1537,7 +1537,7 @@ window.mkLampDocx=function(e,L){var d=window.mkLamp(e),out=[],P=L.P,R=L.R,T=L.T,
   out.push(pa('Skor tiap kriteria: 4 = Sangat Baik, 3 = Baik, 2 = Cukup, 1 = Perlu Bimbingan.',{size:18}));
   d.kriteria.forEach(function(k,i){out.push(pa('K'+(i+1)+' = '+k,{size:18},{spacing:{after:20}}))});
   var hd=[ce('No',7,{bold:true}),ce('Nama Murid',100-7-9-8-14-wk*n,{bold:true})].concat(d.kriteria.map(function(k,i){return ce('K'+(i+1),wk,{bold:true})}),[ce('Jml',9,{bold:true}),ce('Nilai',8,{bold:true}),ce('Kategori',14,{bold:true})]),rs=[row(hd)];
-  for(var r=1;r<=Math.max(10,d.murid.length);r++)rs.push(row([ce(String(r),7),ce(d.murid[r-1]||'',100-7-9-8-14-wk*n)].concat(d.kriteria.map(function(){return ce('',wk)}),[ce('',9),ce('',8),ce('',14)]),400));
+  for(var r=1;r<=(d.murid.length||10);r++)rs.push(row([ce(String(r),7),ce(d.murid[r-1]||'',100-7-9-8-14-wk*n)].concat(d.kriteria.map(function(){return ce('',wk)}),[ce('',9),ce('',8),ce('',14)]),400));
   out.push(new P({spacing:{before:80},children:[]}),tb(rs),pa('Nilai = (Jumlah skor : '+(4*n)+') x 100',{bold:true,size:18},{spacing:{before:60}}))}
  if(d.sum){out.push(pa('C. Asesmen Sumatif',{bold:true},{spacing:{before:160,after:60}}),pa(d.sum))}
  out.push(pa('D. Pedoman Kategori Nilai',{bold:true},{spacing:{before:140,after:60}}),tb([row([ce('Kategori',50,{bold:true}),ce('Rentang Nilai',50,{bold:true})])].concat(KAT.map(function(k){return row([ce(k[0],50),ce(k[1],50)])}))),pa('Tuntas bila mencapai minimal kategori Baik (nilai 75 ke atas). Murid di bawah itu mendapat remedial.',{size:18},{spacing:{before:80}}));
@@ -1601,7 +1601,7 @@ window.mkLampPdf=function(e,t){var d=window.mkLamp(e),y=15;
   var wk=Math.min(14,Math.floor(70/n)),wn=175-8-wk*n-12-12-22,cols=[8,wn].concat(d.kriteria.map(function(){return wk}),[12,12,22]);
   var hv=['No','Nama Murid'].concat(d.kriteria.map(function(k,i){return'K'+(i+1)}),['Jml','Nilai','Kategori']);
   g(7+7*3);cellRow(cols,20,7,true,hv);
-  for(var r=1;r<=Math.max(10,d.murid.length);r++){if(g(7)){cellRow(cols,20,7,true,hv)}cellRow(cols,20,7,false,[String(r),d.murid[r-1]?String(d.murid[r-1]).replace(/[^\x00-\xFF]/g,''):''])}
+  for(var r=1;r<=(d.murid.length||10);r++){if(g(7)){cellRow(cols,20,7,true,hv)}cellRow(cols,20,7,false,[String(r),d.murid[r-1]?(function(q){return String(q).replace(/[\u2013\u2014]/g,'-').replace(/[\u2018\u2019\u02BC]/g,"'").replace(/[\u201C\u201D]/g,'\"').split('').map(function(c){return c.charCodeAt(0)<=255?c:c.normalize('NFD').replace(/[^\x00-\x7F]/g,'')}).join('')})(d.murid[r-1]):''])}
   y+=5;t.setFont('helvetica','bold');t.setFontSize(8.5);t.text('Nilai = (Jumlah skor : '+(4*n)+') x 100',20,y);y+=6}
  else para('Rubrik formatif belum tersedia pada modul ini.',23,170,9);
  if(d.sum){g(14);t.setFont('helvetica','bold');t.setFontSize(10);t.text('C. Asesmen Sumatif',20,y);y+=4.5;para(d.sum,23,170,9)}
