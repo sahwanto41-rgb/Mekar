@@ -1258,7 +1258,7 @@ var ARW=/\s*-{2,}\s*>\s*|\s*(?:\u2192|=>)\s*/;
 function blank(t){return X(t).replace(/\[\s*\]/g,'<i class="lk-box"></i>').replace(/\.{3,}|\u2026/g,'<i class="lk-b"></i>')}
 function norm(s){return String(s==null?'':s).replace(/\r/g,'').replace(/\s*-{2,}\s*>\s*/g,' ---> ').replace(/\s*(?:\u2192|=>)\s*/g,' ---> ').replace(/\s+/g,' ').trim()}
 function steps(t){
- var re=/(^|\s)(?:Langkah|Tahap|Step)?\s*(\d{1,2})\s*[.):]\s+(?=\S)/gi,pos=[],m,exp=1;
+ var re=/(^|\s)(?:Langkah|Tahap|Step)?\s*(\d{1,2})\s*[.):](?=\s+\S)/gi,pos=[],m,exp=1;
  while((m=re.exec(t))){if(+m[2]===exp){pos.push({i:m.index+m[1].length,e:m.index+m[0].length});exp++}}
  if(pos.length<2)return null;
  return{lead:t.slice(0,pos[0].i).trim(),it:pos.map(function(p,k){return t.slice(p.e,k+1<pos.length?pos[k+1].i:t.length).trim()})}}
@@ -1287,7 +1287,7 @@ function parse(s){
   }else k=-1}
  if(k<=0){o.teks=s.replace(/\s*\|\s*/g,' ').trim()}
  var b=o.teks.split(/\s+-\s+(?=\(?[A-Za-z0-9]{1,2}[).]\s)/);
- if(b.length<3){b=o.teks.split(/\s+-\s+(?=[A-Z\u00C0-\u00DD])/);if(b.length<3||!/[:!?.]$/.test(b[0]))b=[o.teks]}
+ if(b.length<3&&!(b.length===2&&/--->/.test(b[1]))){b=o.teks.split(/\s+-\s+(?=[A-Z\u00C0-\u00DD])/);if(b.length<3||!/[:!?.]$/.test(b[0]))b=[o.teks]}
  if(b.length>1){o.teks=b[0];o.butir=b.slice(1).map(function(x){var q=x.match(/^\(?([A-Za-z0-9]{1,2})[).]\s+/),a=x.split(ARW),ans=a.length>1?a.slice(1).join(' ').trim():null;
   return{l:q?q[1]:'',t:a[0].replace(/^\(?[A-Za-z0-9]{1,2}[).]\s+/,'').trim(),a:ans,o:opts(ans)}})}
  var st=steps(o.teks);if(st){o.teks=st.lead;o.lang=st.it}
@@ -1323,7 +1323,7 @@ window.mkLkpdHTML=function(e,opt){opt=opt||{};var l=(e&&e.lkpd)||{},h='<div clas
 window.mkLkpdItem=function(s){var o=parse(s),t=(o.judul?o.judul+'. ':'')+o.teks+(o.kut?' '+o.kut.l+': '+o.kut.q:'')
  +(o.lang?'\n'+o.lang.map(function(x,i){return(i+1)+'. '+x}).join('\n'):'')
  +(o.butir.length?'\n'+o.butir.map(function(b){return(b.l?b.l+') ':'- ')+b.t+(b.o?'\n     '+b.o.map(function(p){return'[ ] '+p}).join('   '):(b.a!=null?' \u2192 '+b.a:''))}).join('\n'):'')+(o.tail?'\n'+o.tail:'');
- return{teks:t.replace(/\[\s*\]/g,'___').trim()||String(s),kol:o.kol&&o.kol.length>=2?o.kol.slice(0,6):null}};
+ return{teks:t.replace(/\[\s*\]/g,'___').trim()||String(s),kol:o.kol&&o.kol.length>=2?o.kol.slice(0,6):null,o:o}};
 window.mkLkpdDocx=function(e,L,opt){opt=opt||{};var P=L.P,R=L.R,T=L.T,TR=L.TR,TC=L.TC,W=L.W,B=L.B,l=(e&&e.lkpd)||{},out=[];
  function cl(t){return String(t).replace(/\[\s*\]/g,'\u2610')}
  function tx(t,o){return new R(Object.assign({text:cl(t),font:'Arial',size:20},o||{}))}
@@ -1451,11 +1451,37 @@ window.mkLampPdf=function(e,t){var d=window.mkLamp(e),y=15;
  head('1 - LEMBAR KERJA PESERTA DIDIK (LKPD)',d.judul,'UPTD SPF SD Negeri Lanas 1 | '+sub);
  t.setDrawColor(100,116,139);t.setTextColor(23,43,77);cellRow([87.5,87.5],20,8,false,['Nama / Kelompok :','Hari / Tanggal :']);y+=5;
  if(d.petunjuk.length){t.setFont('helvetica','bold');t.setFontSize(9.5);t.text('Petunjuk Belajar',20,y);y+=4.5;d.petunjuk.forEach(function(p,i){para((i+1)+'. '+p,23,170,9,'normal',0.8)});y+=2}
- d.items.forEach(function(it,i){var pr=String(it.teks).split('\n'),l=W((i+1)+'. '+pr[0],172,9.5,'bold');var need=l.length*4.2+(it.kol?36:30);g(Math.min(need,120));
-  l.forEach(function(q){g(4.5);t.setFont('helvetica','bold');t.setFontSize(9.5);t.text(q,20,y+3);y+=4.2});y+=1.5;
-  pr.slice(1).forEach(function(ln){if(!ln.trim())return;W(ln.replace(/^\s+/,''),166,9,'normal').forEach(function(q,qi){g(4.2);t.setFont('helvetica','normal');t.setFontSize(9);t.text(q,ln.charAt(0)===' '?30:24,y+3);y+=4})});y+=1.5;
-  if(it.kol){var w=175/it.kol.length,cs=it.kol.map(function(){return w});cellRow(cs,20,7,true,it.kol);for(var k=0;k<3;k++){g(9);cellRow(cs,20,9,false)}}
-  else{g(26);t.setDrawColor(148,163,184);t.rect(20,y,175,24);t.setFont('helvetica','italic');t.setFontSize(7.5);t.setTextColor(148,163,184);t.text('Tuliskan / gambarkan jawabanmu di sini',22,y+4);t.setTextColor(23,43,77);y+=24}
+ function A(s){return String(s==null?'':s).replace(/\[\s*\]/g,'').replace(/[\u2013\u2014]/g,'-').replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/\u2192/g,'->').replace(/\u2026/g,'...').replace(/[^\x00-\xFF]/g,'').replace(/\s+/g,' ').trim()}
+ function box(x,yy){t.setDrawColor(100,116,139);t.setLineWidth(.25);t.rect(x,yy-2.6,3,3)}
+ function lines(s,x,w,sz,st,gap){W(A(s),w,sz,st).forEach(function(q){g(4.3);t.setFont('helvetica',st||'normal');t.setFontSize(sz||9.5);t.text(q,x,y+3);y+=sz>9.5?4.8:4.2});y+=gap==null?1:gap}
+ d.items.forEach(function(it,i){var o=it.o;t.setTextColor(23,43,77);
+  if(!o){lines((i+1)+'. '+it.teks,20,172,9.5,'bold',2);return}
+  g(26);
+  var ttl=(i+1)+'. '+(o.judul?o.judul:'Aktivitas '+(o.no||(i+1)))+(o.tag?'  ['+o.tag+']':'');
+  t.setFillColor(228,244,238);t.rect(20,y-0.5,175,6.2,'F');t.setFillColor(19,138,114);t.rect(20,y-0.5,1.4,6.2,'F');
+  t.setFont('helvetica','bold');t.setFontSize(10);t.setTextColor(23,43,77);t.text(A(ttl),24,y+3.8);y+=8.2;
+  if(o.teks)lines(o.teks,22,171,9.5,'normal',1.5);
+  if(o.kut){var ql=W(A(o.kut.l.toUpperCase()+': '+o.kut.q),160,9,'italic');g(ql.length*4+4);t.setFillColor(246,250,248);t.rect(24,y-1,169,ql.length*4+2,'F');t.setFillColor(19,138,114);t.rect(24,y-1,1,ql.length*4+2,'F');
+   ql.forEach(function(q){t.setFont('helvetica','italic');t.setFontSize(9);t.text(q,28,y+2.4);y+=4});y+=3}
+  if(o.pre)lines(o.pre,22,171,9.5,'normal',1.5);
+  if(o.lang)o.lang.forEach(function(x,k){var l=W(A(x),160,9.5,'normal');g(l.length*4.2+1);t.setDrawColor(19,138,114);t.setLineWidth(.25);t.circle(26,y+1.6,2,'S');t.setFont('helvetica','bold');t.setFontSize(7.5);t.setTextColor(19,138,114);t.text(String(k+1),26,y+2.5,{align:'center'});t.setTextColor(23,43,77);
+   l.forEach(function(q){t.setFont('helvetica','normal');t.setFontSize(9.5);t.text(q,31,y+2.8);y+=4.2});y+=1.4});
+  var ans=false;
+  o.butir.forEach(function(b){var lb=A(b.l?b.l+'.':'-');
+   if(b.o){ans=true;var ql=W(A(b.t),155,9.5,'normal');g(ql.length*4.2+9);t.setFont('helvetica','bold');t.setFontSize(9.5);t.setTextColor(19,138,114);t.text(lb,24,y+3);t.setTextColor(23,43,77);
+    ql.forEach(function(q){t.setFont('helvetica','normal');t.setFontSize(9.5);t.text(q,31,y+3);y+=4.2});y+=0.6;
+    for(var k=0;k<b.o.length;k+=2){g(5.5);[0,1].forEach(function(c){var p=b.o[k+c];if(p==null)return;var x=c?112:33;box(x,y+3);t.setFont('helvetica','normal');t.setFontSize(9);t.text(W(A(p),c?78:72,9)[0]||'',x+5,y+3)});y+=5}y+=1.5}
+   else if(b.a!=null){ans=true;var ql=W(A(b.t),92,9.5,'normal'),ar=W(A(String(b.a).replace(/^\[\s*\]\s*/,'')),48,9.5),hh=Math.max(ql.length,ar.length)*4.4+1.5;g(hh);
+    t.setFont('helvetica','bold');t.setFontSize(9.5);t.setTextColor(19,138,114);t.text(lb,24,y+3);t.setTextColor(23,43,77);
+    ql.forEach(function(q,k){t.setFont('helvetica','normal');t.setFontSize(9.5);t.text(q,31,y+3+k*4.4)});
+    t.setDrawColor(148,163,184);t.setLineWidth(.2);t.setLineDashPattern([.5,.9],0);t.line(126,y+2,138,y+2);t.setLineDashPattern([],0);
+    box(142,y+3);ar.forEach(function(q,k){t.setFont('helvetica','normal');t.setFontSize(9.5);t.text(q,147,y+3+k*4.4)});y+=hh+1.2}
+   else{var ql=W(A(b.t),160,9.5,'normal');g(ql.length*4.2+1);t.setFont('helvetica','bold');t.setFontSize(9.5);t.setTextColor(19,138,114);t.text(lb,24,y+3);t.setTextColor(23,43,77);
+    ql.forEach(function(q){t.setFont('helvetica','normal');t.setFontSize(9.5);t.text(q,31,y+3);y+=4.2});y+=1}});
+  if(o.kol){var w=172/o.kol.length,cs=o.kol.map(function(){return w}),nr=o.rows.length?o.rows:[0,1,2].map(function(k){return o.kol.map(function(c,j){return j===0&&/^(no\.?|nomor)$/i.test(c.trim())?String(k+1):''})});
+   t.setDrawColor(100,116,139);g(18);cellRow(cs,22,7,true,o.kol.map(A));nr.forEach(function(r){g(9);cellRow(cs,22,9,false,r.map(function(c){return /^[\s.\u2026_]*$/.test(c)?'':A(c)}))});y+=2}
+  if(o.tail)lines(o.tail,22,171,9.5,'normal',1.5);
+  if(!o.kol&&!ans){g(26);t.setDrawColor(148,163,184);t.setLineWidth(.2);t.rect(22,y,171,22);t.setFont('helvetica','italic');t.setFontSize(7.5);t.setTextColor(148,163,184);t.text('Tuliskan / gambarkan jawabanmu di sini',24,y+4);t.setTextColor(23,43,77);y+=22}
   y+=5});
  g(10);t.setFont('helvetica','normal');t.setFontSize(9.5);t.text('Nilai : ..........          Paraf Guru : ..........',20,y+3);
  /* Lampiran 2 */
