@@ -1250,6 +1250,69 @@ new MutationObserver(function(){var f=find();if(!f){last='';return}if(!f.box.que
 })();
 </script>
 <script>
+/* MEKAR - Data murid terintegrasi KILAT. Memakai login Firebase guru (bukan kode rahasia di halaman) untuk mengambil nama murid. (1) daftar kelas disimpan sementara di tab ini untuk lampiran cetak; (2) panel presensi per murid di Jurnal. */
+(function(){
+var SK='mekar_roster_v1',R={},lastLoad=0,cache={},pk='',pseq=0,ptimer=null;
+try{R=JSON.parse(sessionStorage.getItem(SK)||'{}')||{}}catch(x){R={}}
+function digits(k){return String(k==null?'':k).replace(/\D/g,'')}
+function me(){try{return window.firebase&&firebase.apps&&firebase.apps.length&&firebase.auth().currentUser||null}catch(x){return null}}
+function call(q){var u=me(),base=window.MEKAR_PRESENSI_URL;
+ if(!u||!base)return Promise.resolve({ok:false,auth:true,error:'Belum login MEKAR'});
+ return u.getIdToken().then(function(t){return new Promise(function(ok){var to=setTimeout(function(){ok({ok:false,error:'Waktu habis'})},15000);
+  fetch(base+'?'+q+'&idtoken='+encodeURIComponent(t)).then(function(r){return r.json()}).then(function(d){clearTimeout(to);ok(d||{ok:false,error:'Respons kosong'})}).catch(function(){clearTimeout(to);ok({ok:false,error:'Tidak tersambung ke KILAT'})})})}).catch(function(){return{ok:false,auth:true,error:'Sesi login tidak terbaca'}})}
+function load(){return call('action=roster').then(function(d){if(!d||!d.ok||!Array.isArray(d.murid))return;
+ var o={};d.murid.forEach(function(m){var k=digits(m.kelas);if(!k||!m.nama)return;(o[k]=o[k]||[]).push({id:m.id,nama:m.nama})});
+ Object.keys(o).forEach(function(k){o[k].sort(function(a,b){return a.nama.localeCompare(b.nama,'id')})});
+ R=o;try{sessionStorage.setItem(SK,JSON.stringify(o))}catch(x){}})}
+/* nama murid satu kelas (sinkron; kosong bila belum termuat) */
+window.mkRoster=function(kelas){return(R[digits(kelas)]||[]).map(function(m){return m.nama})};
+window.mkRosterMuat=load;
+setInterval(function(){if(!me())return;if(Date.now()-lastLoad<20*60000)return;lastLoad=Date.now();load()},3000);
+
+/* ---------- panel presensi per murid di Jurnal ---------- */
+function kategori(m){var k=String(m||'').toLowerCase().replace(/[^a-z]/g,'');
+ if(/^(pai|paibp|paipb|pendidikanagamaislam|agamaislam)/.test(k))return'PAIPB';
+ if(/pjok|jasmani/.test(k))return'PJOK';return'HARIAN'}
+function find(){var ls=document.querySelectorAll('label,span'),l=null;
+ for(var i=0;i<ls.length;i++){if(ls[i].children.length===0&&ls[i].textContent.trim()==='Presensi Siswa Hari Ini:'){l=ls[i];break}}
+ if(!l)return null;var box=l.parentNode,form=l.closest('form');if(!form)return null;
+ var tgl=form.querySelector('input[type=date]'),kelas=null,mapel=null;
+ form.querySelectorAll('label').forEach(function(x){var t=x.textContent.trim(),s=x.parentNode.querySelector('select');if(t==='Kelas SD')kelas=s;if(t==='Mata Pelajaran')mapel=s});
+ if(!tgl||!kelas||!mapel)return null;return{box:box,tgl:tgl,kelas:kelas,mapel:mapel}}
+function el(tag,css,txt){var e=document.createElement(tag);if(css)e.style.cssText=css;if(txt!=null)e.textContent=txt;return e}
+var LB={S:'Sakit',I:'Izin',A:'Alpa'},WR={H:'#0F7A65',S:'#B45309',I:'#1D4ED8',A:'#B91C1C','':'#64748B'};
+function draw(b,d){b.textContent='';
+ if(!d||!d.ok){b.appendChild(el('div','font-size:11px;color:'+(d&&d.auth?'#64748B':'#B45309'),d&&d.auth?'Nama murid tampil setelah Anda masuk dengan akun guru yang terdaftar di KILAT.':'Daftar murid belum bisa dimuat: '+((d&&d.error)||'tidak diketahui')+'.'));return}
+ var gr={S:[],I:[],A:[],'':[]},tot=d.murid.length;
+ d.murid.forEach(function(m){if(gr.hasOwnProperty(m.status))gr[m.status].push(m.nama)});
+ var tidak=[];['S','I','A'].forEach(function(k){if(gr[k].length)tidak.push(LB[k]+': '+gr[k].join(', '))});
+ var ring=el('div','font-size:12px;line-height:1.5;color:#172B4D;margin-top:2px');
+ if(!tot){ring.textContent='Belum ada murid kelas '+d.kelas+' di KILAT.'}
+ else if(!d.total){ring.textContent='Presensi belum dicatat untuk '+tot+' murid kelas '+d.kelas+'.'}
+ else{ring.appendChild(el('b','color:#138A72','Tidak hadir: '));ring.appendChild(document.createTextNode(tidak.length?tidak.join(' · '):'tidak ada (semua murid yang tercatat hadir).'));}
+ b.appendChild(ring);
+ if(tot){var det=el('details','margin-top:4px'),sm=el('summary','font-size:11px;color:#138A72;cursor:pointer','Lihat semua murid ('+tot+')');det.appendChild(sm);
+  var wrap=el('div','display:flex;flex-wrap:wrap;gap:4px;margin-top:6px');
+  d.murid.forEach(function(m){var c=el('span','font-size:11px;padding:1px 8px;border-radius:10px;border:1px solid '+WR[m.status]+';color:'+WR[m.status],m.nama+' · '+(m.status?(m.status==='H'?'Hadir':LB[m.status]):'belum dicatat'));wrap.appendChild(c)});
+  det.appendChild(wrap);b.appendChild(det)}
+ if(tidak.length||gr[''].length){var bt=el('button','margin-top:6px;font-size:11px;padding:3px 10px;border-radius:8px;border:1px solid #138A72;color:#138A72;background:#fff;cursor:pointer','Salin nama yang tidak hadir');bt.type='button';
+  bt.onclick=function(){var tx=tidak.join('. ')+(tidak.length?'.':'');
+   function ok(){bt.textContent='Tersalin ✓';setTimeout(function(){bt.textContent='Salin nama yang tidak hadir'},1500)}
+   try{navigator.clipboard.writeText(tx).then(ok,function(){})}catch(x){}};b.appendChild(bt)}}
+function panel(){var f=find();if(!f)return;var tg=f.tgl.value,kl=String(f.kelas.value),op=f.mapel.options[f.mapel.selectedIndex],mp=kategori(op&&op.text||f.mapel.value);
+ if(!tg||!kl)return;var key=tg+'|'+kl+'|'+mp,b=f.box.querySelector('.mk-murid');
+ if(!b){b=el('div','margin-top:8px;padding-top:6px;border-top:1px dashed #cbd5e1');b.className='mk-murid';f.box.appendChild(b);if(cache[key]&&Date.now()-cache[key].t<120000){draw(b,cache[key].d);pk=key;return}pk=''}
+ if(key===pk)return;pk=key;var my=++pseq;
+ b.textContent='';b.appendChild(el('div','font-size:11px;color:#64748B','Memuat daftar murid…'));
+ call('action=murid&kelas='+encodeURIComponent(kl)+'&tanggal='+encodeURIComponent(tg)+'&mapel='+mp).then(function(d){
+  if(my!==pseq)return;if(d&&d.ok)cache[key]={t:Date.now(),d:d};var g=find();if(!g)return;var bb=g.box.querySelector('.mk-murid');if(bb)draw(bb,d)})}
+function jadwal(){clearTimeout(ptimer);ptimer=setTimeout(panel,600)}
+document.addEventListener('change',jadwal,true);
+new MutationObserver(function(){var f=find();if(!f){pk='';return}if(!f.box.querySelector('.mk-murid'))jadwal()}).observe(document.documentElement,{childList:true,subtree:true});
+})();
+
+</script>
+<script>
 /* MEKAR - Penata LKPD v2: mengurai teks aktivitas (tabel "|", daftar "- (A)", panah "--->", langkah "1. 2. 3." / "Langkah 1:", pilihan "[ ]", kotak "Kasus:") menjadi tampilan cetak rapi. */
 (function(){
 var X=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})};
@@ -1380,7 +1443,7 @@ function item(s){s=String(s==null?'':s).replace(/^(Pertemuan\s*\d+\s*:\s*)?(Akti
    kol=p.slice(0,6)}}
  return{teks:teks,kol:kol}}
 window.mkLamp=function(e){e=e||{};var l=e.lkpd||{},a=e.asesmen||{},f=a.formatif||{},su=a.sumatif||{};
- return{judul:l.judul||'Lembar Kerja Peserta Didik',petunjuk:l.petunjuk||[],items:(l.aktivitas||[]).map(function(x){return window.mkLkpdItem(x)}),
+ return{murid:(window.mkRoster?window.mkRoster(e.kelas):[]),judul:l.judul||'Lembar Kerja Peserta Didik',petunjuk:l.petunjuk||[],items:(l.aktivitas||[]).map(function(x){return window.mkLkpdItem(x)}),
   mapel:e.mataPelajaran||'',kelas:e.kelas||'',topik:e.topik||'',diag:a.diagnostik||'',fTeknik:f.teknik||'',
   kriteria:(f.rubrik||[]).map(function(x){return x.kriteria||''}).slice(0,8),sum:su.teknik||'',kat:KAT}};
 
@@ -1400,9 +1463,9 @@ window.mkLampHTML=function(e){var d=window.mkLamp(e),h='',pb='page-break-before:
  h+='<div style="font-weight:700;font-size:10pt">B. Lembar Penilaian Formatif'+(d.fTeknik?' ('+X(d.fTeknik)+')':'')+'</div>';
  if(d.kriteria.length){var n=d.kriteria.length;
   h+='<div style="font-size:9pt;margin:3pt 0">Skor tiap kriteria: 4 = Sangat Baik, 3 = Baik, 2 = Cukup, 1 = Perlu Bimbingan.</div><ul style="margin:2pt 0 6pt 14pt;padding:0;font-size:9pt;list-style:none">'+d.kriteria.map(function(k,i){return'<li><b>K'+(i+1)+'</b> = '+X(k)+'</li>'}).join('')+'</ul>';
-  h+='<table style="width:100%;border-collapse:collapse"><tr><th style="'+th+';width:4%">No</th><th style="'+th+'">Nama Peserta Didik</th>'+d.kriteria.map(function(k,i){return'<th style="'+th+';width:6%;text-align:center">K'+(i+1)+'</th>'}).join('')+'<th style="'+th+';width:8%">Jumlah</th><th style="'+th+';width:8%">Nilai</th><th style="'+th+';width:14%">Kategori</th></tr>';
-  for(var r=1;r<=10;r++)h+='<tr><td style="'+td+';height:18pt;text-align:center">'+r+'</td><td style="'+td+'">&nbsp;</td>'+d.kriteria.map(function(){return'<td style="'+td+'">&nbsp;</td>'}).join('')+'<td style="'+td+'">&nbsp;</td><td style="'+td+'">&nbsp;</td><td style="'+td+'">&nbsp;</td></tr>';
-  h+='</table><div style="font-size:9pt;margin-top:4pt"><b>Nilai</b> = (Jumlah skor : '+(4*n)+') x 100</div>'}
+  h+='<table style="width:100%;border-collapse:collapse"><thead><tr><th style="'+th+';width:4%">No</th><th style="'+th+'">Nama Peserta Didik</th>'+d.kriteria.map(function(k,i){return'<th style="'+th+';width:6%;text-align:center">K'+(i+1)+'</th>'}).join('')+'<th style="'+th+';width:8%">Jumlah</th><th style="'+th+';width:8%">Nilai</th><th style="'+th+';width:14%">Kategori</th></tr></thead><tbody>';
+  var NR=Math.max(10,d.murid.length);for(var r=1;r<=NR;r++)h+='<tr style="break-inside:avoid"><td style="'+td+';height:18pt;text-align:center">'+r+'</td><td style="'+td+'">'+(d.murid[r-1]?X(d.murid[r-1]):'&nbsp;')+'</td>'+d.kriteria.map(function(){return'<td style="'+td+'">&nbsp;</td>'}).join('')+'<td style="'+td+'">&nbsp;</td><td style="'+td+'">&nbsp;</td><td style="'+td+'">&nbsp;</td></tr>';
+  h+='</tbody></table><div style="font-size:9pt;margin-top:4pt"><b>Nilai</b> = (Jumlah skor : '+(4*n)+') x 100</div>'}
  else h+='<div style="font-size:9.5pt;margin:2pt 0">Rubrik formatif belum tersedia pada modul ini.</div>';
  if(d.sum)h+='<div style="font-weight:700;font-size:10pt;margin-top:10pt">C. Asesmen Sumatif</div><div style="font-size:9.5pt;margin:2pt 0 8pt">'+X(d.sum)+'</div>';
  h+='<div style="font-weight:700;font-size:10pt;margin-top:6pt">D. Pedoman Kategori Nilai</div><table style="width:60%;border-collapse:collapse;margin-top:3pt"><tr><th style="'+th+'">Kategori</th><th style="'+th+'">Rentang Nilai</th></tr>'+KAT.map(function(k){return'<tr><td style="'+td+'">'+k[0]+'</td><td style="'+td+'">'+k[1]+'</td></tr>'}).join('')+'</table>';
@@ -1429,7 +1492,7 @@ window.mkLampDocx=function(e,L){var d=window.mkLamp(e),out=[],P=L.P,R=L.R,T=L.T,
   out.push(pa('Skor tiap kriteria: 4 = Sangat Baik, 3 = Baik, 2 = Cukup, 1 = Perlu Bimbingan.',{size:18}));
   d.kriteria.forEach(function(k,i){out.push(pa('K'+(i+1)+' = '+k,{size:18},{spacing:{after:20}}))});
   var hd=[ce('No',7,{bold:true}),ce('Nama Peserta Didik',100-7-9-8-14-wk*n,{bold:true})].concat(d.kriteria.map(function(k,i){return ce('K'+(i+1),wk,{bold:true})}),[ce('Jml',9,{bold:true}),ce('Nilai',8,{bold:true}),ce('Kategori',14,{bold:true})]),rs=[row(hd)];
-  for(var r=1;r<=10;r++)rs.push(row([ce(String(r),7),ce('',100-7-9-8-14-wk*n)].concat(d.kriteria.map(function(){return ce('',wk)}),[ce('',9),ce('',8),ce('',14)]),400));
+  for(var r=1;r<=Math.max(10,d.murid.length);r++)rs.push(row([ce(String(r),7),ce(d.murid[r-1]||'',100-7-9-8-14-wk*n)].concat(d.kriteria.map(function(){return ce('',wk)}),[ce('',9),ce('',8),ce('',14)]),400));
   out.push(new P({spacing:{before:80},children:[]}),tb(rs),pa('Nilai = (Jumlah skor : '+(4*n)+') x 100',{bold:true,size:18},{spacing:{before:60}}))}
  if(d.sum){out.push(pa('C. Asesmen Sumatif',{bold:true},{spacing:{before:160,after:60}}),pa(d.sum))}
  out.push(pa('D. Pedoman Kategori Nilai',{bold:true},{spacing:{before:140,after:60}}),tb([row([ce('Kategori',50,{bold:true}),ce('Rentang Nilai',50,{bold:true})])].concat(KAT.map(function(k){return row([ce(k[0],50),ce(k[1],50)])}))),pa('Tuntas bila mencapai minimal kategori Baik (nilai 75 ke atas). Peserta didik di bawah itu mendapat remedial.',{size:18},{spacing:{before:80}}));
@@ -1493,7 +1556,7 @@ window.mkLampPdf=function(e,t){var d=window.mkLamp(e),y=15;
   var wk=Math.min(14,Math.floor(70/n)),wn=175-8-wk*n-12-12-22,cols=[8,wn].concat(d.kriteria.map(function(){return wk}),[12,12,22]);
   var hv=['No','Nama Peserta Didik'].concat(d.kriteria.map(function(k,i){return'K'+(i+1)}),['Jml','Nilai','Kategori']);
   g(7+7*3);cellRow(cols,20,7,true,hv);
-  for(var r=1;r<=10;r++){if(g(7)){cellRow(cols,20,7,true,hv)}cellRow(cols,20,7,false,[String(r)])}
+  for(var r=1;r<=Math.max(10,d.murid.length);r++){if(g(7)){cellRow(cols,20,7,true,hv)}cellRow(cols,20,7,false,[String(r),d.murid[r-1]?String(d.murid[r-1]).replace(/[^\x00-\xFF]/g,''):''])}
   y+=5;t.setFont('helvetica','bold');t.setFontSize(8.5);t.text('Nilai = (Jumlah skor : '+(4*n)+') x 100',20,y);y+=6}
  else para('Rubrik formatif belum tersedia pada modul ini.',23,170,9);
  if(d.sum){g(14);t.setFont('helvetica','bold');t.setFontSize(10);t.text('C. Asesmen Sumatif',20,y);y+=4.5;para(d.sum,23,170,9)}
