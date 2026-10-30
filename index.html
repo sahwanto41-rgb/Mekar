@@ -159,11 +159,11 @@ Object.keys(KM).forEach(function(k){var v=RG(k);snap[k]=v==null?null:mp(arr(v))}
 Storage.prototype.setItem=function(k,v){_set.apply(this,arguments);if(this===localStorage&&KM[k]&&!silent){try{chg(k,v)}catch(e){}}};
 function chg(k,v){var a=arr(v);if(!a)return;var n=mp(a),o=snap[k];snap[k]=n;if(o===null)return;var q=pend[k]=pend[k]||{};
 Object.keys(n).forEach(function(i){if(n[i]!==o[i])q[i]={d:n[i]}});Object.keys(o).forEach(function(i){if(!(i in n))q[i]={del:1}});clearTimeout(timer);timer=setTimeout(flush,900)}
-function flush(){if(!ready||!db)return Promise.resolve();var jobs=[];Object.keys(pend).forEach(function(k){Object.keys(pend[k]).forEach(function(i){jobs.push([k,i,pend[k][i]])})});if(!jobs.length){setSt('ok');return Promise.resolve()}
+function flush(){if(!ready||!db)return Promise.resolve();var jobs=[];Object.keys(pend).forEach(function(k){Object.keys(pend[k]).forEach(function(i){jobs.push([k,i,pend[k][i]])})});if(!jobs.length){setSt('ok');pubStat();return Promise.resolve()}
 setSt('sync');var ts=Date.now(),by=who(),ch=[];for(var n=0;n<jobs.length;n+=400)ch.push(jobs.slice(n,n+400));
 return ch.reduce(function(p,c){return p.then(function(){var b=db.batch();c.forEach(function(j){var big=j[2].d&&j[2].d.length>900000;if(big){console.warn('MEKAR: item terlalu besar untuk Firestore',j[1]);return}
 b.set(db.collection(KM[j[0]]).doc(j[1]),{d:j[2].d||'',del:!!j[2].del,ts:ts,by:by})});return b.commit().then(function(){c.forEach(function(j){(seen[j[0]]=seen[j[0]]||{})[j[1]]=ts;if(pend[j[0]])delete pend[j[0]][j[1]]})})})},Promise.resolve())
-.then(function(){saveSeen();setSt('ok')}).catch(function(e){fail(e)})}
+.then(function(){saveSeen();setSt('ok');pubStat()}).catch(function(e){fail(e)})}
 function sync(){if(busy||!ready)return Promise.resolve();busy=1;setSt('sync');var any=0;
 return Promise.all(Object.keys(KM).map(function(k){return db.collection(KM[k]).get().then(function(s){return[k,s]})})).then(function(rs){
 rs.forEach(function(r){var k=r[0],s=r[1],loc=arr(RG(k))||[],lm={},remote={},sk=seen[k]=seen[k]||{},pq=pend[k]=pend[k]||{},ch=0;
@@ -176,6 +176,7 @@ Object.keys(lm).forEach(function(id){if(!remote[id]&&!pq[id])pq[id]={d:JSON.stri
 if(ch){var out=[],done={};loc.forEach(function(x){var id=x&&x.id!=null?did(x.id):null;if(id&&lm[id]&&!done[id]){out.push(lm[id]);done[id]=1}});Object.keys(lm).forEach(function(id){if(!done[id])out.push(lm[id])});put(k,out);any=1}})
 saveSeen();return flush()}).then(function(){busy=0;if(any){var t=+sessionStorage.getItem(RT)||0,ae=document.activeElement;
 if(first&&Date.now()-t>20000&&!(ae&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))){sessionStorage.setItem(RT,Date.now());location.reload();return}setSt('new')}first=0}).catch(function(e){busy=0;first=0;fail(e)})}
+function pubStat(){try{if(!db)return;var a=arr(RG('mekar_modules_lanas1'))||[],n=a.filter(function(x){return x&&x.id!=null}).length;db.collection('statistik').doc('ringkasan').set({total:n,diperbarui:new Date().toISOString()}).catch(function(e){console.warn('MEKAR: statistik dashboard tidak terbit:',e&&e.code||e)})}catch(e){}}
 function fail(e){lastErr=(e&&(e.code||'')+' '+(e&&e.message||e))||'';console.error('MEKAR sync',e);setSt(navigator.onLine?'err':'off')}
 var TX={wait:'☁ Menghubungkan…',sync:'☁ Menyinkronkan…',ok:'☁ Tersimpan di cloud',err:'☁ Gagal sinkron (ketuk)',off:'☁ Offline, menunggu sinyal',new:'☁ Ada data baru, ketuk untuk muat ulang'},CL={ok:'#0F7A65',new:'#1D4ED8',err:'#B91C1C',off:'#B45309'};
 function setSt(s){st=s;if(!pill)return;pill.textContent=TX[s];pill.style.background=CL[s]||'#475569'}
