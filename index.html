@@ -607,6 +607,34 @@ try{if(!localStorage.getItem('mekar_mapel_kokurikuler_v1')){tetapkanKokurikuler(
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script>/* MEKAR - tarik TP kiriman SIPENA dari Firestore (koleksi 'mekar_tp') ke localStorage 'rc_mekar_tp'.
+   Dipisah dari sinkron utama (modul/jurnal/GTK) agar kegagalan di sini tidak mengganggu data lain. */
+(function(){
+var K='rc_mekar_tp',C='mekar_tp',unsub=null,uid=null;
+function did(i){return String(i).replace(/[\/\s]/g,'_').slice(0,200)}
+function loc(){try{var a=JSON.parse(localStorage.getItem(K)||'[]');return Array.isArray(a)?a.filter(function(x){return x&&x.id!=null}):[]}catch(e){return[]}}
+function who(){try{return(JSON.parse(localStorage.getItem('mekar_current_user_lanas1'))||{}).name||''}catch(e){return''}}
+var first=true;
+function onSnap(snap){var map={},remote={},ch=0;loc().forEach(function(x){map[did(x.id)]=x});
+snap.forEach(function(doc){var x=doc.data(),id=doc.id;remote[id]=x;
+if(x.del){if(map[id]){delete map[id];ch=1}return}
+var r;try{r=JSON.parse(x.d)}catch(e){return}if(!r||r.jenis!=='sipena-tp')return;
+var l=map[id];if(!l||String(r.dikirimPada||'')>String(l.dikirimPada||'')){map[id]=r;ch=1}});
+if(ch){var out=Object.keys(map).map(function(k){return map[k]}).sort(function(a,b){return String(b.dikirimPada||'').localeCompare(String(a.dikirimPada||''))});
+try{localStorage.setItem(K,JSON.stringify(out))}catch(e){console.warn('MEKAR TP: gagal simpan lokal',e)}}
+if(first){first=false;/* unggah TP yang hanya ada di perangkat ini */
+var db=firebase.firestore(),by=who();
+Object.keys(map).forEach(function(id){var l=map[id],r=remote[id],lj=JSON.stringify(l);
+if(l.jenis!=='sipena-tp'||lj.length>900000)return;
+if(!r||(!r.del&&String(l.dikirimPada||'')>String((function(){try{return JSON.parse(r.d).dikirimPada}catch(e){return''}})()||''))){
+db.collection(C).doc(id).set({d:lj,del:false,ts:Date.now(),by:by}).catch(function(e){console.warn('MEKAR TP: unggah gagal',e&&e.code||e)})}})}}
+function start(u){stop();uid=u.uid;first=true;try{unsub=firebase.firestore().collection(C).onSnapshot(onSnap,function(e){console.warn('MEKAR TP: tidak bisa membaca koleksi mekar_tp ('+(e&&e.code||e)+'). Periksa aturan Firestore.')})}catch(e){console.warn('MEKAR TP',e)}}
+function stop(){if(unsub){try{unsub()}catch(e){}unsub=null}uid=null}
+setInterval(function(){try{if(!window.firebase||!firebase.apps||!firebase.apps.length||!firebase.auth)return;
+var u=firebase.auth().currentUser,ok=u&&!u.isAnonymous&&localStorage.getItem('mekar_authed');
+if(ok&&uid!==u.uid)start(u);else if(!ok&&uid)stop()}catch(e){}},2000);
+})();
+</script>
     <script>/* MEKAR - ambil TP hasil sinkron SIPENA (kunci 'rc_mekar_tp' di localStorage; SIPENA & MEKAR satu domain). Dipakai Langkah 2 pembuatan modul ajar. */
 window.mkSipTp=function(mapel,kelas,sem,apply,G){try{
  function nk(v){return String(v==null?'':v).toLowerCase().replace(/[^a-z0-9]/g,'')}
@@ -617,7 +645,7 @@ window.mkSipTp=function(mapel,kelas,sem,apply,G){try{
   (r.tp||[]).forEach(function(t){if(t&&(t.semester==='Genap')===genap&&String(t.tp||'').trim())items.push(t)})});
  var box='space-y-1.5 p-3 rounded-xl bg-[#E4F4EE]/60 border border-[#138A72]/30',lb='text-xs font-semibold text-[#172B4D]';
  if(!items.length)return G.jsxs('div',{className:box,children:[G.jsx('label',{className:lb,children:'TP dari SIPENA'}),
-  G.jsx('p',{className:'text-[11px] text-[#64748B]',children:'Belum ada TP dari SIPENA untuk mapel, kelas, dan semester ini di perangkat ini. Di SIPENA, buka ATP lalu tekan Sinkronkan ke MEKAR (buka SIPENA di browser yang sama dengan MEKAR).'})]});
+  G.jsx('p',{className:'text-[11px] text-[#64748B]',children:'Belum ada TP dari SIPENA untuk mapel, kelas, dan semester ini di perangkat ini. Di SIPENA, buka ATP lalu tekan Sinkronkan ke MEKAR. TP akan muncul di sini otomatis setelah terkirim (pastikan Anda sudah masuk di MEKAR dan ada internet; bila baru dikirim, tutup lalu buka lagi langkah ini).'})]});
  return G.jsxs('div',{className:box,children:[G.jsx('label',{className:lb,children:'Ambil dari SIPENA ('+items.length+' TP)'}),
   G.jsxs('select',{value:'',onChange:function(e){var i=e.target.value;if(i!=='')apply(items[Number(i)])},className:'w-full py-2.5 px-3 text-xs rounded-xl bg-white border border-[#172B4D]/15 text-[#172B4D] focus:outline-none focus:border-[#138A72]',
    children:[G.jsx('option',{value:'',children:'Pilih TP untuk mengisi topik, elemen CP, dan TP'},'x')].concat(items.map(function(t,i){var x=String(t.tp).replace(/\s+/g,' ');return G.jsx('option',{value:i,children:(t.kode?t.kode+' - ':'')+(t.topik?t.topik+': ':'')+(x.length>80?x.slice(0,80)+'...':x)},i)}))}),
